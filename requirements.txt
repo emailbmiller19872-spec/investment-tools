@@ -1,0 +1,13 @@
+selenium==4.15.2
+web3==6.15.1
+requests==2.31.0
+python-dotenv==1.0.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+schedule==1.2.0
+telethon==1.32.1
+tweepy==4.14.0
+fake-useragent==1.4.0
+requests-html==0.10.0
+pytesseract==0.3.10
+Pillow==10.1.0

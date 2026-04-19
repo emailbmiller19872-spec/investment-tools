@@ -1,0 +1,96 @@
+name: Deploy Bots to OCI
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push airfarm image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/airfarm:latest
+
+      - name: Deploy to Oracle Cloud VM
+        uses: appleboy/ssh-action@v1.7.0
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            mkdir -p /home/ubuntu/bot-deploy
+            cat > /home/ubuntu/bot-deploy/docker-compose.yml <<'EOF'
+            version: '3.8'
+
+            services:
+              coinbot:
+                image: ${DOCKER_USERNAME}/coinbot:latest
+                container_name: coinbot
+                restart: unless-stopped
+                env_file:
+                  - ./coinbot.env
+
+              airfarm:
+                image: ${DOCKER_USERNAME}/airfarm:latest
+                container_name: airfarm
+                restart: unless-stopped
+                env_file:
+                  - ./airfarm.env
+            EOF
+
+            cat > /home/ubuntu/bot-deploy/server-healthcheck.sh <<'EOF'
+            #!/bin/sh
+            set -e
+            MASTER_WALLET_ADDRESS="${MASTER_WALLET_ADDRESS:-0xYourMasterWalletAddressHere}"
+            MIN_BALANCE_THRESHOLD="${MIN_BALANCE_THRESHOLD:-0.001}"
+            RPC_URL="${RPC_URL:-https://api.etherscan.io/api?module=account&action=balance&address=${MASTER_WALLET_ADDRESS}&tag=latest}"
+
+            if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 || ! command -v bc >/dev/null 2>&1; then
+              echo "Required utilities missing: curl, jq, bc"
+              exit 1
+            fi
+
+            while true; do
+              balance_wei=$(curl -s "$RPC_URL" | jq -r '.result')
+              if [ "$balance_wei" = "null" ] || [ -z "$balance_wei" ]; then
+                echo "Unable to fetch balance, retrying..."
+                sleep 15
+                continue
+              fi
+              balance_eth=$(echo "scale=6; $balance_wei / 10^18" | bc)
+              if [ "$(echo "$balance_eth >= $MIN_BALANCE_THRESHOLD" | bc -l)" -eq 1 ]; then
+                echo "Coinbot health check passed: $balance_eth ETH"
+                exit 0
+              fi
+              echo "Coinbot health check not ready: $balance_eth ETH (< $MIN_BALANCE_THRESHOLD)"
+              sleep 30
+            done
+            EOF
+
+            chmod +x /home/ubuntu/bot-deploy/server-healthcheck.sh
+            cd /home/ubuntu/bot-deploy
+            docker pull ${DOCKER_USERNAME}/coinbot:latest || true
+            docker pull ${DOCKER_USERNAME}/airfarm:latest || true
+            docker compose up -d coinbot
+            /home/ubuntu/bot-deploy/server-healthcheck.sh
+            docker compose up -d airfarm

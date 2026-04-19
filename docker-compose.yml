@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  coinbot:
+    image: ${DOCKER_USERNAME}/coinbot:latest
+    container_name: coinbot
+    restart: unless-stopped
+    env_file:
+      - ./coinbot.env
+
+  airfarm:
+    image: ${DOCKER_USERNAME}/airfarm:latest
+    container_name: airfarm
+    restart: unless-stopped
+    env_file:
+      - ./airfarm.env
