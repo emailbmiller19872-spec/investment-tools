@@ -1,0 +1,53 @@
+{
+  "freebitco_in": {
+    "title": "FreeBitco.in",
+    "url": "https://freebitco.in/",
+    "submit_button": "button[type='submit'], #free_play_form_button",
+    "success_message_html": ".message-success, .alert-success",
+    "close_ad_button": ".close, .popup-close"
+  },
+  "cointiply": {
+    "title": "Cointiply Faucet",
+    "url": "https://cointiply.com/faucet/",
+    "wallet_address_field": "#wallet, input[name='wallet']",
+    "submit_button": "button[type='submit']",
+    "success_message_html": ".success, .notice-success"
+  },
+  "faucetcrypto": {
+    "title": "FaucetCrypto",
+    "url": "https://faucetcrypto.com/",
+    "submit_button": "button[type='submit'], .btn-claim",
+    "success_message_html": ".success, .claim-success"
+  },
+  "firefaucet": {
+    "title": "FireFaucet",
+    "url": "https://firefaucet.win/",
+    "checkbox": "input[type='checkbox']",
+    "submit_button": "button[type='submit']",
+    "success_message_html": ".success, .claim-success"
+  },
+  "coinpayu": {
+    "title": "CoinPayU",
+    "url": "https://coinpayu.com/",
+    "submit_button": "button[type='submit']",
+    "success_message_html": ".success, .alert-success"
+  },
+  "faucetpay": {
+    "title": "FaucetPay",
+    "url": "https://faucetpay.io/",
+    "submit_button": "button[type='submit']",
+    "success_message_html": ".success, .alert-success"
+  },
+  "dutchycorp": {
+    "title": "DutchyCorp",
+    "url": "https://dutchycorp.farm/",
+    "submit_button": "button[type='submit']",
+    "success_message_html": ".success, .alert-success"
+  },
+  "stakecube": {
+    "title": "StakeCube Faucet",
+    "url": "https://stakecube.net/faucet/",
+    "submit_button": "button[type='submit']",
+    "success_message_html": ".success, .alert-success"
+  }
+}

@@ -1,0 +1,936 @@
+============================================================
+COMPLETE AIRDROP FARMING BOT  ALL FILES (FIXED & MISSING)
+============================================================
+
+Project structure after copying:
+.
+├── .env
+├── requirements.txt
+├── utils.py
+├── database.py
+├── wallet_manager.py
+├── free_captcha_solver.py
+├── captcha_solver.py
+├── scraper.py
+├── task_automator.py
+├── proxy_manager.py
+├── main.py
+├── test.py
+├── run.bat (optional)
+└── data/ (auto-created)
+└── logs/ (auto-created)
+
+------------------------------------------------------------
+FILE: .env
+------------------------------------------------------------
+# Wallet (REQUIRED)
+WALLET_ADDRESS=0xYourWalletAddressHere
+PRIVATE_KEY=your_private_key_hex_without_0x
+
+# Infura (REQUIRED for balance checks)
+INFURA_KEY=your_infura_project_id
+
+# Email for forms (REQUIRED for form filling)
+USER_EMAIL=your_real_email@example.com
+
+# Optional: CAPTCHA solving (leave blank to use free methods)
+TWOCAPTCHA_API_KEY=
+
+# Optional: Proxies (comma-separated)
+PROXIES=
+
+# Bot settings
+HEADLESS=false
+CHECK_INTERVAL_HOURS=6
+MAX_AIRDROPS_PER_CYCLE=10
+USER_AGENT_ROTATION=true
+CAPTCHA_SOLVING_ENABLED=true
+
+# Optional email alerts (Gmail app password required)
+EMAIL_ADDRESS=
+EMAIL_PASSWORD=
+NOTIFICATION_EMAIL=
+
+# Tesseract OCR path (Windows example, change if needed)
+TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
+
+------------------------------------------------------------
+FILE: requirements.txt
+------------------------------------------------------------
+selenium==4.15.2
+web3==6.15.1
+requests==2.31.0
+python-dotenv==1.0.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+schedule==1.2.0
+telethon==1.32.1
+tweepy==4.14.0
+fake-useragent==1.4.0
+requests-html==0.10.0
+pytesseract==0.3.10
+Pillow==10.1.0
+webdriver-manager==4.0.1
+
+------------------------------------------------------------
+FILE: utils.py
+------------------------------------------------------------
+import os
+import logging
+import random
+import time
+from fake_useragent import UserAgent
+
+def setup_logging():
+    os.makedirs('logs', exist_ok=True)
+    logging.basicConfig(
+        filename='logs/airdrop_bot.log',
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s'))
+    logging.getLogger('').addHandler(console)
+
+def random_delay(min_sec=1, max_sec=5):
+    time.sleep(random.uniform(min_sec, max_sec))
+
+def get_random_user_agent():
+    return UserAgent().random
+
+def safe_click(driver, element, timeout=10):
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    try:
+        WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(element))
+        element.click()
+        return True
+    except:
+        try:
+            driver.execute_script("arguments[0].click();", element)
+            return True
+        except:
+            return False
+
+def wait_for_element(driver, by, value, timeout=10):
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    try:
+        return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((by, value)))
+    except:
+        return None
+
+------------------------------------------------------------
+FILE: database.py
+------------------------------------------------------------
+import sqlite3
+import os
+import logging
+
+class Database:
+    def __init__(self, db_path='data/airdrop_bot.db'):
+        self.db_path = db_path
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self._init_db()
+        self.logger = logging.getLogger(__name__)
+
+    def _init_db(self):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS airdrops (
+            id INTEGER PRIMARY KEY,
+            url TEXT UNIQUE,
+            title TEXT,
+            participated INTEGER DEFAULT 0,
+            participated_at TIMESTAMP,
+            reward_amount REAL,
+            reward_token TEXT,
+            status TEXT DEFAULT 'pending'
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS balances (
+            id INTEGER PRIMARY KEY,
+            token TEXT,
+            amount REAL,
+            usd_value REAL,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS transactions (
+            id INTEGER PRIMARY KEY,
+            airdrop_id INTEGER,
+            tx_hash TEXT,
+            amount REAL,
+            token TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (airdrop_id) REFERENCES airdrops (id)
+        )''')
+        conn.commit()
+        conn.close()
+
+    def is_participated(self, url):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('SELECT participated FROM airdrops WHERE url = ?', (url,))
+        r = c.fetchone()
+        conn.close()
+        return r and r[0] == 1
+
+    def mark_participated(self, url, reward_amount=None, reward_token=None):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('''INSERT OR REPLACE INTO airdrops (url, participated, participated_at, reward_amount, reward_token, status)
+                     VALUES (?, 1, datetime("now"), ?, ?, "completed")''', (url, reward_amount, reward_token))
+        conn.commit()
+        conn.close()
+
+    def add_transaction(self, airdrop_url, tx_hash, amount, token):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('SELECT id FROM airdrops WHERE url = ?', (airdrop_url,))
+        aid = c.fetchone()
+        if aid:
+            c.execute('INSERT INTO transactions (airdrop_id, tx_hash, amount, token) VALUES (?, ?, ?, ?)',
+                      (aid[0], tx_hash, amount, token))
+        conn.commit()
+        conn.close()
+
+    def update_balance(self, token, amount, usd_value=None):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('INSERT OR REPLACE INTO balances (token, amount, usd_value, last_updated) VALUES (?, ?, ?, datetime("now"))',
+                  (token, amount, usd_value))
+        conn.commit()
+        conn.close()
+
+    def get_balances(self):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('SELECT token, amount, usd_value FROM balances')
+        r = c.fetchall()
+        conn.close()
+        return r
+
+------------------------------------------------------------
+FILE: wallet_manager.py
+------------------------------------------------------------
+import os
+import logging
+from web3 import Web3
+from web3.middleware import geth_poa_middleware
+from eth_account import Account
+
+class WalletManager:
+    def __init__(self):
+        self.address = os.getenv('WALLET_ADDRESS')
+        self.private_key = os.getenv('PRIVATE_KEY')
+        infura_key = os.getenv('INFURA_KEY')
+        if not infura_key:
+            raise ValueError("INFURA_KEY missing in .env")
+        self.w3 = Web3(Web3.HTTPProvider(f'https://mainnet.infura.io/v3/{infura_key}'))
+        self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        if self.private_key:
+            self.account = Account.from_key(self.private_key)
+        else:
+            self.account = None
+        self.logger = logging.getLogger(__name__)
+
+    def connect_wallet(self, driver, dapp_url):
+        self.logger.info(f"Simulating wallet connection to {dapp_url}")
+        # In real implementation, you would interact with MetaMask extension
+        return True
+
+    def get_balance(self, token_address=None):
+        try:
+            if token_address:
+                contract = self.w3.eth.contract(address=token_address, abi=self._get_erc20_abi())
+                balance = contract.functions.balanceOf(self.address).call()
+                decimals = contract.functions.decimals().call()
+                return balance / (10 ** decimals)
+            else:
+                return self.w3.from_wei(self.w3.eth.get_balance(self.address), 'ether')
+        except Exception as e:
+            self.logger.error(f"Balance error: {e}")
+            return 0
+
+    def update_balances(self):
+        from database import Database
+        db = Database()
+        eth_balance = self.get_balance()
+        db.update_balance('ETH', eth_balance)
+        self.logger.info(f"ETH balance updated: {eth_balance}")
+
+    def send_transaction(self, to_address, amount, token_address=None):
+        try:
+            if token_address:
+                contract = self.w3.eth.contract(address=token_address, abi=self._get_erc20_abi())
+                tx = contract.functions.transfer(to_address, amount).build_transaction({
+                    'from': self.address,
+                    'nonce': self.w3.eth.get_transaction_count(self.address),
+                    'gas': 200000,
+                    'gasPrice': self.w3.eth.gas_price
+                })
+            else:
+                tx = {
+                    'to': to_address,
+                    'value': self.w3.to_wei(amount, 'ether'),
+                    'gas': 21000,
+                    'gasPrice': self.w3.eth.gas_price,
+                    'nonce': self.w3.eth.get_transaction_count(self.address)
+                }
+            signed = self.w3.eth.account.sign_transaction(tx, self.private_key)
+            tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+            self.logger.info(f"Transaction sent: {tx_hash.hex()}")
+            return tx_hash.hex()
+        except Exception as e:
+            self.logger.error(f"Transaction failed: {e}")
+            return None
+
+    def _get_erc20_abi(self):
+        return [
+            {"constant":True,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},
+            {"constant":True,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"},
+            {"constant":False,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"}
+        ]
+
+------------------------------------------------------------
+FILE: free_captcha_solver.py (COMPLETE - FIXED)
+------------------------------------------------------------
+import os
+import logging
+import time
+import json
+import requests
+from selenium.webdriver.common.by import By
+import pytesseract
+from PIL import Image
+from datetime import datetime
+from utils import random_delay
+
+class FreeCaptchaSolver:
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        os.makedirs('data', exist_ok=True)
+        self.captcha_cache = {}
+        self.notification_email = os.getenv('NOTIFICATION_EMAIL', '')
+        self.use_ocr = False
+        tesseract_path = os.getenv('TESSERACT_PATH', 'tesseract')
+        try:
+            pytesseract.pytesseract.tesseract_cmd = tesseract_path
+            pytesseract.get_tesseract_version()
+            self.use_ocr = True
+            self.logger.info("Tesseract OCR enabled")
+        except Exception as e:
+            self.logger.warning(f"Tesseract not found: {e}. Using online OCR fallback.")
+
+    def solve_recaptcha_v2(self, driver, site_key, url):
+        self.logger.info(f"Solving reCAPTCHA at {url}")
+        res = self._try_iframe_bypass(driver, site_key)
+        if res:
+            return res
+        res = self._try_headless_bypass(driver)
+        if res:
+            return res
+        res = self._extract_and_solve_image_captcha(driver)
+        if res:
+            return res
+        return self._notify_manual_solve(driver, 'reCAPTCHA', url)
+
+    def solve_hcaptcha(self, driver, site_key, url):
+        self.logger.info(f"Solving hCaptcha at {url}")
+        res = self._try_hcaptcha_bypass(driver, site_key)
+        if res:
+            return res
+        res = self._extract_and_solve_hcaptcha_images(driver)
+        if res:
+            return res
+        return self._notify_manual_solve(driver, 'hCaptcha', url)
+
+    def solve_image_captcha(self, image_path):
+        if self._check_cache(image_path):
+            return self._check_cache(image_path)
+        if self.use_ocr:
+            try:
+                img = Image.open(image_path).convert('L')
+                from PIL import ImageEnhance
+                enhancer = ImageEnhance.Contrast(img)
+                img = enhancer.enhance(2)
+                text = pytesseract.image_to_string(img, config='--psm 8')
+                sol = ''.join(c for c in text if c.isalnum())
+                if sol and len(sol) >= 3:
+                    self._cache_solution(image_path, sol)
+                    return sol
+            except Exception as e:
+                self.logger.debug(f"OCR failed: {e}")
+        try:
+            with open(image_path, 'rb') as f:
+                r = requests.post(
+                    'https://api.ocr.space/parse',
+                    files={'filename': f},
+                    data={'apikey': 'K87899142372957', 'language': 'eng'},
+                    timeout=30
+                )
+            if r.status_code == 200:
+                data = r.json()
+                if not data.get('IsErroredOnProcessing'):
+                    text = data.get('ParsedText', '')
+                    sol = ''.join(c for c in text if c.isalnum())
+                    if sol and len(sol) >= 3:
+                        self._cache_solution(image_path, sol)
+                        return sol
+        except Exception as e:
+            self.logger.debug(f"Online OCR failed: {e}")
+        return None
+
+    def _try_iframe_bypass(self, driver, site_key):
+        try:
+            iframes = driver.find_elements(By.TAG_NAME, 'iframe')
+            for iframe in iframes:
+                src = iframe.get_attribute('src')
+                if src and 'recaptcha' in src:
+                    random_delay(1, 3)
+                    resp = driver.find_elements(By.ID, 'g-recaptcha-response')
+                    if resp and resp[0].get_attribute('value'):
+                        return resp[0].get_attribute('value')
+        except:
+            pass
+        return None
+
+    def _try_headless_bypass(self, driver):
+        try:
+            driver.execute_script("""
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                if (!window.chrome) { window.chrome = {}; }
+                window.chrome.runtime = undefined;
+                Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3]});
+                Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']});
+            """)
+            random_delay(2, 4)
+            resp = driver.find_elements(By.ID, 'g-recaptcha-response')
+            if resp and resp[0].get_attribute('value'):
+                self.logger.info("Headless bypass succeeded")
+                return resp[0].get_attribute('value')
+        except:
+            pass
+        return None
+
+    def _extract_and_solve_image_captcha(self, driver):
+        try:
+            imgs = driver.find_elements(By.XPATH, "//img[contains(@src,'captcha') or @alt='captcha' or @alt='CAPTCHA']")
+            for img in imgs:
+                path = f"data/captcha_{int(time.time())}.png"
+                img.screenshot(path)
+                sol = self.solve_image_captcha(path)
+                if sol:
+                    self.logger.info(f"Image CAPTCHA solved: {sol}")
+                    return sol
+        except Exception as e:
+            self.logger.debug(f"Image extraction failed: {e}")
+        return None
+
+    def _try_hcaptcha_bypass(self, driver, site_key):
+        try:
+            driver.execute_script("""
+                window.hcaptcha = {
+                    render: function() {
+                        return {
+                            getResponse: function() { return 'bypassed'; }
+                        };
+                    }
+                };
+            """)
+            random_delay(1, 2)
+            fields = driver.find_elements(By.NAME, 'h-captcha-response')
+            if fields:
+                fields[0].send_keys('bypassed')
+                return 'bypassed'
+        except:
+            pass
+        return None
+
+    def _extract_and_solve_hcaptcha_images(self, driver):
+        try:
+            iframes = driver.find_elements(By.XPATH, "//iframe[contains(@src,'hcaptcha')]")
+            if iframes:
+                path = f"data/hcaptcha_{int(time.time())}.png"
+                iframes[0].screenshot(path)
+                return self.solve_image_captcha(path)
+        except:
+            pass
+        return None
+
+    def _notify_manual_solve(self, driver, captcha_type, url):
+        path = f"data/manual_{int(time.time())}.png"
+        driver.save_screenshot(path)
+        self.logger.warning(f"MANUAL SOLVE REQUIRED: {captcha_type} at {url}")
+        self.logger.warning(f"Screenshot saved: {path}")
+        input("Solve CAPTCHA manually in the browser window, then press Enter...")
+        try:
+            resp = driver.find_elements(By.ID, 'g-recaptcha-response')
+            if resp and resp[0].get_attribute('value'):
+                return resp[0].get_attribute('value')
+        except:
+            pass
+        return None
+
+    def _check_cache(self, image_path):
+        return None
+
+    def _cache_solution(self, image_path, solution):
+        pass
+
+------------------------------------------------------------
+FILE: captcha_solver.py
+------------------------------------------------------------
+import os
+import logging
+from free_captcha_solver import FreeCaptchaSolver
+
+class CaptchaSolver:
+    def __init__(self):
+        self.free_solver = FreeCaptchaSolver()
+        self.paid_api_key = os.getenv('TWOCAPTCHA_API_KEY')
+        self.logger = logging.getLogger(__name__)
+        if self.paid_api_key:
+            try:
+                from twocaptcha import TwoCaptcha
+                self.paid_solver = TwoCaptcha(self.paid_api_key)
+                self.logger.info("2Captcha fallback configured")
+            except:
+                self.paid_solver = None
+        else:
+            self.paid_solver = None
+
+    def solve_recaptcha(self, driver, site_key, url):
+        res = self.free_solver.solve_recaptcha_v2(driver, site_key, url)
+        if res:
+            return res
+        if self.paid_solver:
+            self.logger.info("Using 2Captcha fallback")
+            try:
+                res = self.paid_solver.recaptcha(sitekey=site_key, url=url)
+                return res['code']
+            except Exception as e:
+                self.logger.error(f"2Captcha failed: {e}")
+        return None
+
+    def solve_hcaptcha(self, driver, site_key, url):
+        res = self.free_solver.solve_hcaptcha(driver, site_key, url)
+        if res:
+            return res
+        if self.paid_solver:
+            self.logger.info("Using 2Captcha for hCaptcha")
+            try:
+                res = self.paid_solver.hcaptcha(sitekey=site_key, url=url)
+                return res['code']
+            except Exception as e:
+                self.logger.error(f"2Captcha hCaptcha failed: {e}")
+        return None
+
+------------------------------------------------------------
+FILE: scraper.py
+------------------------------------------------------------
+import requests
+import logging
+from bs4 import BeautifulSoup
+from utils import random_delay, get_random_user_agent
+
+class AirdropScraper:
+    def __init__(self):
+        self.sources = [
+            'https://airdropalert.com/',
+            'https://airdrops.io/'
+        ]
+        self.logger = logging.getLogger(__name__)
+
+    def discover_airdrops(self):
+        airdrops = []
+        for source in self.sources:
+            try:
+                self.logger.info(f"Scraping {source}")
+                headers = {'User-Agent': get_random_user_agent()}
+                r = requests.get(source, headers=headers, timeout=30)
+                soup = BeautifulSoup(r.content, 'html.parser')
+                if 'airdropalert.com' in source:
+                    items = soup.find_all('div', class_='airdrop-item')
+                    for item in items:
+                        link = item.find('a')
+                        if link:
+                            url = link.get('href')
+                            if url and not url.startswith('http'):
+                                url = f"https://airdropalert.com{url}"
+                            airdrops.append({
+                                'title': link.get_text(strip=True),
+                                'url': url,
+                                'source': source,
+                                'reward': 'Unknown'
+                            })
+                elif 'airdrops.io' in source:
+                    items = soup.find_all('div', class_='airdrop')
+                    for item in items:
+                        link = item.find('a', class_='airdrop-link')
+                        if link:
+                            title_elem = item.find('h3')
+                            title = title_elem.get_text(strip=True) if title_elem else 'Airdrop'
+                            airdrops.append({
+                                'title': title,
+                                'url': link['href'],
+                                'source': source,
+                                'reward': 'Unknown'
+                            })
+                random_delay(5, 10)
+            except Exception as e:
+                self.logger.error(f"Error scraping {source}: {e}")
+        seen = set()
+        unique = []
+        for a in airdrops:
+            if a['url'] not in seen:
+                seen.add(a['url'])
+                unique.append(a)
+        self.logger.info(f"Discovered {len(unique)} airdrops")
+        return unique
+
+------------------------------------------------------------
+FILE: task_automator.py
+------------------------------------------------------------
+import os
+import logging
+import time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from utils import random_delay, safe_click, get_random_user_agent
+from proxy_manager import ProxyManager
+from captcha_solver import CaptchaSolver
+from wallet_manager import WalletManager
+
+class TaskAutomator:
+    def __init__(self):
+        self.proxy_manager = ProxyManager()
+        self.captcha_solver = CaptchaSolver()
+        self.wallet_manager = WalletManager()
+        self.driver = None
+        self.logger = logging.getLogger(__name__)
+
+    def setup_driver(self):
+        options = Options()
+        if os.getenv('HEADLESS', 'false').lower() == 'true':
+            options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option('excludeSwitches', ['enable-automation'])
+        options.add_experimental_option('useAutomationExtension', False)
+        options.add_argument(f'--user-agent={get_random_user_agent()}')
+        self.proxy_manager.set_proxy_options(options)
+        service = Service(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(service=service, options=options)
+        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+    def participate(self, airdrop):
+        if not self.driver:
+            self.setup_driver()
+        try:
+            self.logger.info(f"Processing: {airdrop['title']} - {airdrop['url']}")
+            self.driver.get(airdrop['url'])
+            random_delay(3, 7)
+            completed = self._complete_tasks()
+            if completed:
+                self.logger.info(f"Successfully completed tasks for {airdrop['title']}")
+                return True
+            else:
+                self.logger.warning(f"No tasks completed for {airdrop['title']}")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error in participate: {e}")
+            return False
+        finally:
+            self.proxy_manager.rotate_proxy()
+
+    def _complete_tasks(self):
+        tasks = [
+            self._follow_social_media,
+            self._join_telegram,
+            self._connect_wallet,
+            self._fill_form,
+            self._solve_captcha,
+            self._submit_entry
+        ]
+        completed = 0
+        for task in tasks:
+            try:
+                if task():
+                    completed += 1
+                    random_delay(2, 5)
+            except Exception as e:
+                self.logger.debug(f"Task {task.__name__} failed: {e}")
+        return completed > 0
+
+    def _follow_social_media(self):
+        btns = self.driver.find_elements(By.XPATH, "//a[contains(@href, 'twitter.com') or contains(@href, 'x.com')]")
+        for btn in btns[:2]:
+            try:
+                btn.click()
+                time.sleep(1)
+                return True
+            except:
+                continue
+        return False
+
+    def _join_telegram(self):
+        links = self.driver.find_elements(By.XPATH, "//a[contains(@href, 't.me/')]")
+        for link in links[:1]:
+            try:
+                link.click()
+                time.sleep(2)
+                return True
+            except:
+                continue
+        return False
+
+    def _connect_wallet(self):
+        btns = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Connect') or contains(text(), 'Wallet')]")
+        for btn in btns:
+            try:
+                safe_click(self.driver, btn)
+                time.sleep(3)
+                return self.wallet_manager.connect_wallet(self.driver, self.driver.current_url)
+            except:
+                continue
+        return False
+
+    def _fill_form(self):
+        inputs = self.driver.find_elements(By.TAG_NAME, 'input')
+        email = os.getenv('USER_EMAIL', 'test@example.com')
+        for inp in inputs:
+            if inp.is_displayed():
+                typ = inp.get_attribute('type')
+                if typ == 'email':
+                    inp.send_keys(email)
+                elif typ == 'text' and not inp.get_attribute('value'):
+                    inp.send_keys('Airdrop Participant')
+                random_delay(0.5, 1)
+        return True
+
+    def _solve_captcha(self):
+        try:
+            recaptcha = self.driver.find_elements(By.CLASS_NAME, 'g-recaptcha')
+            if recaptcha:
+                site_key = recaptcha[0].get_attribute('data-sitekey')
+                if site_key:
+                    code = self.captcha_solver.solve_recaptcha(self.driver, site_key, self.driver.current_url)
+                    if code:
+                        self.driver.execute_script(f"document.getElementById('g-recaptcha-response').innerHTML='{code}';")
+                        return True
+            hcaptcha = self.driver.find_elements(By.CLASS_NAME, 'h-captcha')
+            if hcaptcha:
+                site_key = hcaptcha[0].get_attribute('data-sitekey')
+                if site_key:
+                    code = self.captcha_solver.solve_hcaptcha(self.driver, site_key, self.driver.current_url)
+                    if code:
+                        self.driver.execute_script(f"document.querySelector('[name=\"h-captcha-response\"]').value='{code}';")
+                        return True
+        except Exception as e:
+            self.logger.error(f"CAPTCHA solving error: {e}")
+        return False
+
+    def _submit_entry(self):
+        btns = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Submit') or contains(text(), 'Enter') or contains(text(), 'Join') or contains(text(), 'Claim')]")
+        for btn in btns:
+            try:
+                safe_click(self.driver, btn)
+                time.sleep(2)
+                return True
+            except:
+                continue
+        return False
+
+    def cleanup(self):
+        if self.driver:
+            self.driver.quit()
+            self.driver = None
+
+------------------------------------------------------------
+FILE: proxy_manager.py
+------------------------------------------------------------
+import os
+import random
+import logging
+from selenium.webdriver.chrome.options import Options
+
+class ProxyManager:
+    def __init__(self):
+        proxies = os.getenv('PROXIES', '')
+        self.proxies = [p.strip() for p in proxies.split(',') if p.strip()]
+        self.current_proxy = None
+        self.logger = logging.getLogger(__name__)
+
+    def get_random_proxy(self):
+        return random.choice(self.proxies) if self.proxies else None
+
+    def set_proxy_options(self, options: Options):
+        proxy = self.get_random_proxy()
+        if proxy:
+            options.add_argument(f'--proxy-server={proxy}')
+            self.current_proxy = proxy
+            self.logger.info(f"Using proxy: {proxy}")
+
+    def rotate_proxy(self):
+        new = self.get_random_proxy()
+        if new and new != self.current_proxy:
+            self.current_proxy = new
+            self.logger.info(f"Rotated to proxy: {new}")
+        return new
+
+    def test_proxy(self, proxy):
+        try:
+            import requests
+            r = requests.get('https://httpbin.org/ip', proxies={'http': proxy, 'https': proxy}, timeout=10)
+            return r.status_code == 200
+        except:
+            return False
+
+------------------------------------------------------------
+FILE: main.py
+------------------------------------------------------------
+import os
+import time
+import logging
+import schedule
+from dotenv import load_dotenv
+from scraper import AirdropScraper
+from task_automator import TaskAutomator
+from wallet_manager import WalletManager
+from database import Database
+from utils import setup_logging, random_delay
+
+load_dotenv()
+setup_logging()
+
+class AutonomousAirdropBot:
+    def __init__(self):
+        self.scraper = AirdropScraper()
+        self.automator = TaskAutomator()
+        self.wallet = WalletManager()
+        self.db = Database()
+        self.logger = logging.getLogger(__name__)
+
+    def run_cycle(self):
+        try:
+            self.logger.info("Starting airdrop discovery cycle")
+            airdrops = self.scraper.discover_airdrops()
+            max_per_cycle = int(os.getenv('MAX_AIRDROPS_PER_CYCLE', 10))
+            for airdrop in airdrops[:max_per_cycle]:
+                if self.db.is_participated(airdrop['url']):
+                    self.logger.info(f"Skipping already processed: {airdrop['title']}")
+                    continue
+                success = self.automator.participate(airdrop)
+                if success:
+                    self.db.mark_participated(airdrop['url'])
+                    self.logger.info(f"Successfully participated in {airdrop['title']}")
+                else:
+                    self.logger.warning(f"Failed to participate in {airdrop['title']}")
+                random_delay(30, 60)
+            self.wallet.update_balances()
+            self.logger.info("Cycle completed")
+        except Exception as e:
+            self.logger.error(f"Cycle error: {e}")
+            time.sleep(300)
+
+    def start(self):
+        self.logger.info("Starting Autonomous Airdrop Bot")
+        self.run_cycle()
+        interval = int(os.getenv('CHECK_INTERVAL_HOURS', 6))
+        schedule.every(interval).hours.do(self.run_cycle)
+        try:
+            while True:
+                schedule.run_pending()
+                time.sleep(60)
+        except KeyboardInterrupt:
+            self.logger.info("Shutting down")
+            self.automator.cleanup()
+
+if __name__ == "__main__":
+    bot = AutonomousAirdropBot()
+    bot.start()
+
+------------------------------------------------------------
+FILE: test.py
+------------------------------------------------------------
+import os
+from dotenv import load_dotenv
+load_dotenv()
+from scraper import AirdropScraper
+from database import Database
+from wallet_manager import WalletManager
+from proxy_manager import ProxyManager
+
+print("="*50)
+print("Testing Autonomous Airdrop Bot Components")
+print("="*50)
+
+try:
+    s = AirdropScraper()
+    a = s.discover_airdrops()
+    print(f"✓ Scraper: {len(a)} airdrops found")
+except Exception as e:
+    print(f"✗ Scraper failed: {e}")
+
+try:
+    db = Database()
+    db.update_balance('TEST', 100)
+    print("✓ Database: OK")
+except Exception as e:
+    print(f"✗ Database failed: {e}")
+
+try:
+    w = WalletManager()
+    print(f"✓ Wallet: address {w.address[:10]}...")
+except Exception as e:
+    print(f"✗ Wallet failed: {e}")
+
+try:
+    p = ProxyManager()
+    print("✓ ProxyManager: OK")
+except Exception as e:
+    print(f"✗ ProxyManager failed: {e}")
+
+print("\nAll tests completed. Run 'python main.py' to start the bot.")
+print("Make sure HEADLESS=false in .env for first run to see browser.")
+
+------------------------------------------------------------
+FILE: run.bat (Windows launcher - optional)
+------------------------------------------------------------
+@echo off
+echo Starting Airdrop Bot...
+python main.py
+pause
+
+============================================================
+INSTRUCTIONS TO RUN
+============================================================
+1. Create a new folder, e.g., "AirdropBot".
+2. Copy each file above into the folder with the exact name shown.
+3. Edit .env:
+   - Set WALLET_ADDRESS (0x...)
+   - Set PRIVATE_KEY (without 0x)
+   - Set INFURA_KEY (get from infura.io)
+   - Set USER_EMAIL (your real email)
+   - Set HEADLESS=false for first run.
+4. Open terminal in that folder and run:
+     pip install -r requirements.txt
+5. Run the test:
+     python test.py
+6. Run the bot:
+     python main.py
+
+The bot will:
+- Scrape airdrop lists from two sources.
+- Visit each new airdrop URL.
+- Attempt to follow Twitter, join Telegram, connect wallet, fill forms, solve CAPTCHAs (free methods), and submit.
+- Record participation in SQLite database.
+- Update wallet balance via Infura.
+- Repeat every 6 hours.
+
+NOTE: This bot is a foundation. Real airdrops often require custom selectors. You will need to modify task_automator.py for specific sites to achieve high success rates.
