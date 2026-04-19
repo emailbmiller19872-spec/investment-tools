@@ -1,22 +1,28 @@
 services:
   - type: worker
     name: coinbot
-    runtime: python
+    env: docker
     plan: free
-    repo: https://github.com/charliescustomsandrepair-star/investment-tools
-    buildCommand: apt-get update && apt-get install -y wget gnupg && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list && apt-get update && apt-get install -y google-chrome-stable && cd coinbot && pip install -r requirements.txt
-    startCommand: cd coinbot && python main.py
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: HEADLESS
         value: "true"
+      - key: BOT_TYPE
+        value: "coinbot"
+      - key: PYTHONUNBUFFERED
+        value: "1"
 
   - type: worker
     name: airfarm
-    runtime: python
+    env: docker
     plan: free
-    repo: https://github.com/charliescustomsandrepair-star/investment-tools
-    buildCommand: apt-get update && apt-get install -y wget gnupg && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list && apt-get update && apt-get install -y google-chrome-stable && cd airfarm && pip install -r requirements.txt
-    startCommand: cd airfarm && python main.py
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: HEADLESS
         value: "true"
+      - key: BOT_TYPE
+        value: "airfarm"
+      - key: PYTHONUNBUFFERED
+        value: "1"
