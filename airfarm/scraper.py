@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Fix: This allows this sub-folder file to find utils.py in the main folder
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import requests
 from bs4 import BeautifulSoup
 import logging
@@ -103,7 +109,7 @@ class AirdropScraper:
     def _extract_reward(self, element):
         """Extract reward information from airdrop item"""
         reward_text = ''
-        reward_elements = element.find_all(text=lambda text: '$' in text or 'token' in text.lower())
+        reward_elements = element.find_all(string=lambda text: '$' in text or 'token' in text.lower())
         if reward_elements:
             reward_text = ' '.join(reward_elements).strip()
         return reward_text or 'Unknown'
