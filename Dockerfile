@@ -1,30 +1,21 @@
-version: "1"
-projects:
-- name: My project
-  environments:
-  - name: Production
-    # This section defines your Python application
-    services:
-      - type: web
-        name: my-python-app
-        env: python
-        # This updated command installs the compiler needed for lru-dict
-        buildCommand: "apt-get update && apt-get install -y build-essential && pip install -r requirements.txt"
-        startCommand: "gunicorn my_app:app" # Replace with your actual start command (e.g., 'python main.py')
-        envVars:
-          - key: DATABASE_URL
-            fromDatabase:
-              name: airdrop-db
-              property: connectionString
-    
-    # This is the database you already have defined
-    databases:
-    - name: airdrop-db
-      databaseName: airdrop_db
-      user: airdrop_db_user
-      plan: free
-      region: oregon
-      ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere
-      postgresMajorVersion: "18"
+# Use a Python base image
+FROM python:3.10-slim
+
+# Install the compiler tools needed to fix the lru-dict error
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /app
+
+# Copy and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of your code
+COPY . .
+
+# Change this to your actual start command (e.g., python main.py)
+CMD ["python", "main.py"]
