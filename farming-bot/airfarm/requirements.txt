@@ -11,4 +11,3 @@ fake-useragent==1.4.0
 pytesseract==0.3.10
 Pillow==10.1.0
 psycopg2-binary
-lru-dict==1.0.0
