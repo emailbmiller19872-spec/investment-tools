@@ -56,54 +56,48 @@ class Database:
 
     def is_participated(self, url):
         """Check if already participated in airdrop"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT participated FROM airdrops WHERE url = ?', (url,))
-        result = cursor.fetchone()
-        conn.close()
-        return result and result[0] == 1
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT participated FROM airdrops WHERE url = ?', (url,))
+            result = cursor.fetchone()
+            return result and result[0] == 1
 
     def mark_participated(self, url, reward_amount=None, reward_token=None):
         """Mark airdrop as participated"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO airdrops (url, participated, participated_at, reward_amount, reward_token, status)
-            VALUES (?, 1, datetime('now'), ?, ?, 'completed')
-        ''', (url, reward_amount, reward_token))
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO airdrops (url, participated, participated_at, reward_amount, reward_token, status)
+                VALUES (?, 1, datetime('now'), ?, ?, 'completed')
+            ''', (url, reward_amount, reward_token))
+            conn.commit()
 
     def add_transaction(self, airdrop_url, tx_hash, amount, token):
         """Add transaction record"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT id FROM airdrops WHERE url = ?', (airdrop_url,))
-        airdrop_id = cursor.fetchone()
-        if airdrop_id:
-            cursor.execute('''
-                INSERT INTO transactions (airdrop_id, tx_hash, amount, token)
-                VALUES (?, ?, ?, ?)
-            ''', (airdrop_id[0], tx_hash, amount, token))
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id FROM airdrops WHERE url = ?', (airdrop_url,))
+            airdrop_id = cursor.fetchone()
+            if airdrop_id:
+                cursor.execute('''
+                    INSERT INTO transactions (airdrop_id, tx_hash, amount, token)
+                    VALUES (?, ?, ?, ?)
+                ''', (airdrop_id[0], tx_hash, amount, token))
+            conn.commit()
 
     def update_balance(self, token, amount, usd_value=None):
         """Update token balance"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO balances (token, amount, usd_value, last_updated)
-            VALUES (?, ?, ?, datetime('now'))
-        ''', (token, amount, usd_value))
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO balances (token, amount, usd_value, last_updated)
+                VALUES (?, ?, ?, datetime('now'))
+            ''', (token, amount, usd_value))
+            conn.commit()
 
     def get_balances(self):
         """Get all balances"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT token, amount, usd_value FROM balances')
-        balances = cursor.fetchall()
-        conn.close()
-        return balances
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT token, amount, usd_value FROM balances')
+            return cursor.fetchall()

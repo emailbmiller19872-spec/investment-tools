@@ -2,7 +2,7 @@ import os
 import logging
 import pytesseract
 from PIL import Image
-from utils import random_delay
+from .utils import random_delay
 
 class FreeCaptchaSolver:
     def __init__(self):

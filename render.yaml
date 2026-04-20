@@ -27,6 +27,8 @@ services:
         value: "true"
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: BOT_TYPE
+        value: "coinbot"
 
   # airfarm – runs on a schedule (cron job)
   - type: cronjob
@@ -57,6 +59,8 @@ services:
         value: "true"
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: BOT_TYPE
+        value: "airfarm"
       - key: CHECK_INTERVAL_HOURS
         value: "6"
 

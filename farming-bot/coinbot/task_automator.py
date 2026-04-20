@@ -5,10 +5,10 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from utils import random_delay, safe_click, wait_for_element, get_random_user_agent
-from proxy_manager import ProxyManager
-from captcha_solver import CaptchaSolver
-from wallet_manager import WalletManager
+from .utils import random_delay, safe_click, wait_for_element, get_random_user_agent
+from .proxy_manager import ProxyManager
+from .captcha_solver import CaptchaSolver
+from .wallet_manager import WalletManager
 
 class TaskAutomator:
     def __init__(self):

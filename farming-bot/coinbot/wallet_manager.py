@@ -132,7 +132,7 @@ class WalletManager:
             return 0
 
     def update_balances(self):
-        from database import Database
+        from .database import Database
 
         db = Database()
         addresses = self.get_wallet_addresses()

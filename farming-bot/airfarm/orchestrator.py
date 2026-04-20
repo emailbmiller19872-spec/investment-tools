@@ -2,13 +2,13 @@ import os
 import time
 import logging
 import schedule
-from scraper import AirdropScraper
-from task_automator import TaskAutomator
-from wallet_manager import WalletManager
-from consolidation import ConsolidationEngine
-from decision_engine import ScoringEngine
-from database import Database
-from utils import random_delay
+from .scraper import AirdropScraper
+from .task_automator import TaskAutomator
+from .wallet_manager import WalletManager
+from .consolidation import ConsolidationEngine
+from .decision_engine import ScoringEngine
+from .database import Database
+from .utils import random_delay
 
 class AirdropOrchestrator:
     def __init__(self):
