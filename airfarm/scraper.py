@@ -1,23 +1,19 @@
-import sys
-import os
-
-# Fix: This allows this sub-folder file to find utils.py in the main folder
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import requests
 from bs4 import BeautifulSoup
 import logging
 import time
-from utils import random_delay, get_random_user_agent
+
+# This looks for utils.py in the SAME folder (airfarm/)
+from .utils import random_delay, get_random_user_agent
 
 class AirdropScraper:
     def __init__(self):
         self.sources = [
-            'https://airdropalert.com/',
-            'https://airdrops.io/',
-            'https://airdropbob.com/',
-            'https://www.airdropshunter.com/',
-            'https://www.cryptomoonshots.com/airdrops'
+            'https://airdropalert.com',
+            'https://airdrops.io',
+            'https://airdropbob.com',
+            'https://airdropshunter.com',
+            'https://cryptomoonshots.com'
         ]
         self.logger = logging.getLogger(__name__)
 
@@ -87,7 +83,6 @@ class AirdropScraper:
                         'reward': self._extract_reward(item)
                     })
         
-        # Add more parsing for other sources as needed
         else:
             # Generic parsing
             links = soup.find_all('a', href=True)
