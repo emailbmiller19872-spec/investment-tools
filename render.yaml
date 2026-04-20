@@ -1,32 +1,12 @@
-services:
-  - type: web
-    name: coinbot
-    runtime: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    envVars:
-      - key: HEADLESS
-        value: "true"
-      - key: BOT_TYPE
-        value: "coinbot"
-      - key: PYTHONUNBUFFERED
-        value: "1"
-      - key: PORT
-        value: "8000"
-
-  - type: web
-    name: airfarm
-    runtime: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    envVars:
-      - key: HEADLESS
-        value: "true"
-      - key: BOT_TYPE
-        value: "airfarm"
-      - key: PYTHONUNBUFFERED
-        value: "1"
-      - key: PORT
-        value: "8000"
+version: "1"
+projects:
+- name: My project
+  environments:
+  - name: Production
+    databases:
+    - name: airdrop-db
+      databaseName: airdrop_db
+      user: airdrop_db_user
+      plan: free
+      region: oregon
+      postgresMajorVersion: "18"
