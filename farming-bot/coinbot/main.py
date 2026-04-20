@@ -3,12 +3,12 @@ import time
 import logging
 from dotenv import load_dotenv
 import schedule
-from .scraper import FaucetScraper
-from .task_automator import TaskAutomator
-from .wallet_manager import WalletManager
-from .consolidation import ConsolidationEngine
-from .database import Database
-from .utils import setup_logging, random_delay
+from scraper import FaucetScraper
+from task_automator import TaskAutomator
+from wallet_manager import WalletManager
+from consolidation import ConsolidationEngine
+from database import Database
+from utils import setup_logging, random_delay
 
 load_dotenv()
 setup_logging()

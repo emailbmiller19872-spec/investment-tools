@@ -26,5 +26,5 @@ ENV HEADLESS=true
 ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
-# Run based on BOT_TYPE environment variable
-CMD if [ "$BOT_TYPE" = "coinbot" ]; then cd farming-bot/coinbot && python main.py; elif [ "$BOT_TYPE" = "airfarm" ]; then cd farming-bot/airfarm && python main.py; else python main.py; fi
+# Run from the correct subdirectory based on BOT_TYPE
+CMD if [ "$BOT_TYPE" = "coinbot" ]; then cd farming-bot/coinbot && PYTHONPATH=/app/farming-bot/coinbot python main.py; elif [ "$BOT_TYPE" = "airfarm" ]; then cd farming-bot/airfarm && PYTHONPATH=/app/farming-bot/airfarm python main.py; else python main.py; fi

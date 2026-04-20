@@ -4,8 +4,8 @@ services:
     name: coinbot
     env: docker
     plan: free
-    dockerfilePath: ./farming-bot/coinbot/Dockerfile
-    dockerContext: ./farming-bot/coinbot
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -36,8 +36,8 @@ services:
     env: docker
     schedule: "0 */6 * * *"   # every 6 hours
     plan: free
-    dockerfilePath: ./farming-bot/airfarm/Dockerfile
-    dockerContext: ./farming-bot/airfarm
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: DATABASE_URL
         fromDatabase:
