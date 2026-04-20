@@ -11,10 +11,16 @@ services:
         fromDatabase:
           name: airdrop-db
           property: connectionString
+      - key: WALLET_ADDRESSES
+        value: "0x14ffCff3eE11a8D691CD2029DAFce844EC4cF695,0xFf19891D594B30d3B1675279E2b2467602700096,0x42eb2B5734Ac4D61d9c201991D71889A2Ca6D6cD,0x1a2165f3423A11a97c5563D04dFdC99ed8c283eD,0x431654Cac8fB662de7e06060FB889F51cB686620"
+      - key: FARM_PRIVATE_KEYS
+        value: "0xd9207441b786e70a5c9cee580bc79fb5349be6876022abdbab2b479b6f115146,0x53f56d2cd3d8ef1c692194602d40abb108962a2cdf2689b89b9b9285084bc627,0x1176396b6c6cd50563a3d1879fc6755ec01e53d1d704a4c30e70625259e39101,0x0db48d425aa5c4b8636b3935eba213dd1d2b74ea7355e4de83f73d503324a765,0x8beaeae6d9be7a8b3a9793a3878d6ce0d7322aaa54590a336d7477ae320eda58"
       - key: MASTER_WALLET_ADDRESS
-        sync: false
-      - key: PRIVATE_KEY
-        sync: false
+        value: "0xC59c89FA31606AaCc42aD7ec28774ec0485A1Dc7"
+      - key: MASTER_PRIVATE_KEY
+        value: "0x22e4fda7958ccdf37a4d1055843b6bbd6d54c8c0696c3d0dbc873fa48711b5b3"
+      - key: ETH_PROVIDER_URLS
+        value: "https://mainnet.infura.io/v3/YOUR_INFURA_KEY,https://rpc.ankr.com/eth,https://eth.llamarpc.com"
       - key: CONSOLIDATION_ENABLED
         value: "true"
       - key: HEADLESS
@@ -35,16 +41,24 @@ services:
         fromDatabase:
           name: airdrop-db
           property: connectionString
+      - key: WALLET_STORE_KEY
+        value: "wallet_store_password_123"
       - key: MASTER_WALLET_ADDRESS
-        sync: false
-      - key: PRIVATE_KEY
-        sync: false
-      - key: CHECK_INTERVAL_HOURS
-        value: "6"
+        value: "0xC59c89FA31606AaCc42aD7ec28774ec0485A1Dc7"
+      - key: MIDDLEWARE_WALLET_ADDRESS
+        value: "0xf8A9cCbF7A14919Ae348d65b5613ecA810A50B25"
+      - key: MIDDLEWARE_WALLET_PRIVATE_KEY
+        value: "0xf1d69783e843be9a97d4264b51d41d785dd8bc4680ff4f5d4058db9b1954e0e7"
+      - key: RPC_ENDPOINTS
+        value: "https://mainnet.infura.io/v3/YOUR_INFURA_KEY,https://rpc.ankr.com/eth,https://eth.llamarpc.com"
+      - key: CONSOLIDATION_ENABLED
+        value: "true"
       - key: HEADLESS
         value: "true"
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: CHECK_INTERVAL_HOURS
+        value: "6"
 
 databases:
   - name: airdrop-db
