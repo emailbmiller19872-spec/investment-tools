@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# 1. Install compiler tools (keeps the lru-dict fix)
+# 1. Install build tools for lru-dict
 RUN apt-get update && apt-get install -y \
     build-essential \
     python3-dev \
@@ -9,15 +9,15 @@ RUN apt-get update && apt-get install -y \
 # 2. Set the working directory
 WORKDIR /app
 
-# 3. CRITICAL: Add the current directory to Python's search path
+# 3. FIX THE MODULE ERROR: This tells Python to look in /app for 'utils'
 ENV PYTHONPATH="/app"
 
 # 4. Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copy your code
+# 5. Copy all your files
 COPY . .
 
-# 6. Run the app
+# 6. Start the app
 CMD ["python", "main.py"]
