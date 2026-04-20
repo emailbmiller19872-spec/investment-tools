@@ -1,30 +1,30 @@
-FROM python:3.12-slim-bullseye
-
-ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gnupg \
-    unzip \
-    fonts-liberation \
-    chromium \
-    chromium-driver \
-    jq \
-    bc \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --upgrade pip setuptools && pip install -r requirements.txt
-
-COPY . .
-
-# Use Chromium in headless mode by default
-ENV HEADLESS=true
-ENV CHROME_BIN=/usr/bin/chromium
-ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
-
-# Run based on BOT_TYPE environment variable
-CMD if [ "$BOT_TYPE" = "coinbot" ]; then cd coinbot && python main.py; elif [ "$BOT_TYPE" = "airfarm" ]; then cd airfarm && python main.py; else python main.py; fi
+version: "1"
+projects:
+- name: My project
+  environments:
+  - name: Production
+    # This section defines your Python application
+    services:
+      - type: web
+        name: my-python-app
+        env: python
+        # This updated command installs the compiler needed for lru-dict
+        buildCommand: "apt-get update && apt-get install -y build-essential && pip install -r requirements.txt"
+        startCommand: "gunicorn my_app:app" # Replace with your actual start command (e.g., 'python main.py')
+        envVars:
+          - key: DATABASE_URL
+            fromDatabase:
+              name: airdrop-db
+              property: connectionString
+    
+    # This is the database you already have defined
+    databases:
+    - name: airdrop-db
+      databaseName: airdrop_db
+      user: airdrop_db_user
+      plan: free
+      region: oregon
+      ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
+      postgresMajorVersion: "18"
