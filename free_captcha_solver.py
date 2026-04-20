@@ -60,8 +60,8 @@ class FreeCaptchaSolver:
         if solution:
             return solution
         
-        # Method 4: Manual notification
-        return self._notify_manual_solve(driver, 'reCAPTCHA v2', url)
+        self.logger.warning(f"No automatic solution found for reCAPTCHA v2 on {url}")
+        return None
     
     def solve_hcaptcha(self, driver, site_key, url):
         """
@@ -79,8 +79,8 @@ class FreeCaptchaSolver:
         if solution:
             return solution
         
-        # Manual notification
-        return self._notify_manual_solve(driver, 'hCaptcha', url)
+        self.logger.warning(f"No automatic solution found for hCaptcha on {url}")
+        return None
     
     def solve_image_captcha(self, image_path):
         """
@@ -287,17 +287,20 @@ class FreeCaptchaSolver:
         Solve using free online OCR service (OCR.space)
         """
         try:
-            # OCR.space has a free tier
+            ocr_api_key = os.getenv('OCR_SPACE_API_KEY', '')
+            if not ocr_api_key:
+                self.logger.warning("OCR.space API key not configured; skipping online OCR")
+                return None
+
             url = "https://api.ocr.space/parse"
-            
             with open(image_path, 'rb') as f:
                 r = requests.post(
                     url,
                     files={'filename': f},
-                    data={'apikey': 'K87899142372957', 'language': 'eng'},
+                    data={'apikey': ocr_api_key, 'language': 'eng'},
                     timeout=30
                 )
-            
+
             if r.status_code == 200:
                 result = r.json()
                 if result.get('IsErroredOnProcessing') == False:
@@ -343,13 +346,12 @@ class FreeCaptchaSolver:
     
     def _notify_manual_solve(self, driver, captcha_type, url):
         """
-        Notify user via email/console that manual solving is needed
+        Notify user that manual solving was attempted, but do not pause execution.
         """
         try:
-            # Take screenshot
             screenshot_path = f"data/captcha_manual_{int(time.time())}.png"
             driver.save_screenshot(screenshot_path)
-            
+
             message = f"""
             MANUAL CAPTCHA SOLVING REQUIRED
             ================================
@@ -357,38 +359,13 @@ class FreeCaptchaSolver:
             URL: {url}
             Screenshot: {screenshot_path}
             Time: {datetime.now()}
-            
-            Please solve the CAPTCHA in the browser window and press ENTER to continue...
             """
-            
+
             self.logger.warning(message)
-            
-            # Send email if configured
             if self.notification_email:
                 self._send_email_notification(captcha_type, url, screenshot_path)
-            
-            # Console notification
-            print("\n" + "="*50)
-            print(message)
-            print("="*50 + "\n")
-            
-            # Wait for manual solving (with timeout)
-            timeout = 300  # 5 minutes
-            start = time.time()
-            while time.time() - start < timeout:
-                try:
-                    # Check if user solved CAPTCHA
-                    response = driver.find_elements(By.ID, 'g-recaptcha-response')
-                    if response and response[0].get_attribute('value'):
-                        return response[0].get_attribute('value')
-                    
-                    time.sleep(5)
-                except:
-                    pass
-            
-            self.logger.error(f"Manual CAPTCHA solving timeout for {captcha_type}")
+
             return None
-            
         except Exception as e:
             self.logger.error(f"Manual notification failed: {e}")
             return None

@@ -22,13 +22,15 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push airfarm image
+      - name: Build and push bot images
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/airfarm:latest
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/coinbot:latest
+            ${{ secrets.DOCKER_USERNAME }}/airfarm:latest
 
       - name: Deploy to Oracle Cloud VM
         uses: appleboy/ssh-action@v1.7.0
@@ -39,58 +41,49 @@ jobs:
           script: |
             set -e
             mkdir -p /home/ubuntu/bot-deploy
+            cat > /home/ubuntu/bot-deploy/.env <<'EOF'
+            ${{ secrets.BOT_ENV }}
+            EOF
             cat > /home/ubuntu/bot-deploy/docker-compose.yml <<'EOF'
             version: '3.8'
 
             services:
               coinbot:
-                image: ${DOCKER_USERNAME}/coinbot:latest
+                image: ${{ secrets.DOCKER_USERNAME }}/coinbot:latest
                 container_name: coinbot
                 restart: unless-stopped
                 env_file:
-                  - ./coinbot.env
+                  - .env
+                environment:
+                  - BOT_TYPE=coinbot
+                volumes:
+                  - ./data:/app/data
+                  - ./logs:/app/logs
+                healthcheck:
+                  test: ["CMD-SHELL", "python -c 'import requests; requests.get(\"http://localhost:8080/health\")' || exit 1'"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+                  start_period: 60s
 
               airfarm:
-                image: ${DOCKER_USERNAME}/airfarm:latest
+                image: ${{ secrets.DOCKER_USERNAME }}/airfarm:latest
                 container_name: airfarm
                 restart: unless-stopped
                 env_file:
-                  - ./airfarm.env
+                  - .env
+                environment:
+                  - BOT_TYPE=airfarm
+                volumes:
+                  - ./data:/app/data
+                  - ./logs:/app/logs
+                depends_on:
+                  coinbot:
+                    condition: service_healthy
             EOF
 
-            cat > /home/ubuntu/bot-deploy/server-healthcheck.sh <<'EOF'
-            #!/bin/sh
-            set -e
-            MASTER_WALLET_ADDRESS="${MASTER_WALLET_ADDRESS:-0xYourMasterWalletAddressHere}"
-            MIN_BALANCE_THRESHOLD="${MIN_BALANCE_THRESHOLD:-0.001}"
-            RPC_URL="${RPC_URL:-https://api.etherscan.io/api?module=account&action=balance&address=${MASTER_WALLET_ADDRESS}&tag=latest}"
-
-            if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 || ! command -v bc >/dev/null 2>&1; then
-              echo "Required utilities missing: curl, jq, bc"
-              exit 1
-            fi
-
-            while true; do
-              balance_wei=$(curl -s "$RPC_URL" | jq -r '.result')
-              if [ "$balance_wei" = "null" ] || [ -z "$balance_wei" ]; then
-                echo "Unable to fetch balance, retrying..."
-                sleep 15
-                continue
-              fi
-              balance_eth=$(echo "scale=6; $balance_wei / 10^18" | bc)
-              if [ "$(echo "$balance_eth >= $MIN_BALANCE_THRESHOLD" | bc -l)" -eq 1 ]; then
-                echo "Coinbot health check passed: $balance_eth ETH"
-                exit 0
-              fi
-              echo "Coinbot health check not ready: $balance_eth ETH (< $MIN_BALANCE_THRESHOLD)"
-              sleep 30
-            done
-            EOF
-
-            chmod +x /home/ubuntu/bot-deploy/server-healthcheck.sh
             cd /home/ubuntu/bot-deploy
-            docker pull ${DOCKER_USERNAME}/coinbot:latest || true
-            docker pull ${DOCKER_USERNAME}/airfarm:latest || true
-            docker compose up -d coinbot
-            /home/ubuntu/bot-deploy/server-healthcheck.sh
-            docker compose up -d airfarm
+            mkdir -p data logs
+            docker pull ${{ secrets.DOCKER_USERNAME }}/coinbot:latest || true
+            docker pull ${{ secrets.DOCKER_USERNAME }}/airfarm:latest || true
+            docker compose up -d

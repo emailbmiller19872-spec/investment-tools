@@ -2,15 +2,40 @@ version: '3.8'
 
 services:
   coinbot:
-    image: ${DOCKER_USERNAME}/coinbot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME:-local}/coinbot:latest
     container_name: coinbot
     restart: unless-stopped
     env_file:
-      - ./coinbot.env
+      - .env
+    environment:
+      - BOT_TYPE=coinbot
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import requests; requests.get(\"http://localhost:8080/health\")' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   airfarm:
-    image: ${DOCKER_USERNAME}/airfarm:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME:-local}/airfarm:latest
     container_name: airfarm
     restart: unless-stopped
     env_file:
-      - ./airfarm.env
+      - .env
+    environment:
+      - BOT_TYPE=airfarm
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      coinbot:
+        condition: service_healthy
