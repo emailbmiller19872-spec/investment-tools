@@ -1,38 +1,24 @@
-FROM python:3.11-slim
-USER root
+FROM python:3.10-slim
+
+# Install build tools for lru-dict
 RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    ca-certificates \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libatspi2.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgbm1 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libwayland-client0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libxrandr2 \
-    xdg-utils \
-    postgresql-client \
     build-essential \
-    gcc \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg \
-    && sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
+    python3-dev \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
 WORKDIR /app
+
+# FIX THE MODULE ERROR: This tells Python to look in /app for 'utils'
+ENV PYTHONPATH="/app"
+
+# Install dependencies
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy all your files
 COPY . .
-CMD ["python3", "main.py"]
+
+# Start the app
+CMD ["python", "main.py"]
