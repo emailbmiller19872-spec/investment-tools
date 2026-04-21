@@ -27,4 +27,4 @@ ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
 # Run from the correct subdirectory based on BOT_TYPE
-CMD if [ "$BOT_TYPE" = "coinbot" ]; then cd farming-bot/coinbot && PYTHONPATH=/app/farming-bot/coinbot python main.py; elif [ "$BOT_TYPE" = "airfarm" ]; then cd farming-bot/airfarm && PYTHONPATH=/app/farming-bot/airfarm python main.py; else python main.py; fi
+CMD sh -c 'if [ "$BOT_TYPE" = "coinbot" ]; then cd /app/farming-bot/coinbot && PYTHONPATH=/app/farming-bot/coinbot python main.py; elif [ "$BOT_TYPE" = "airfarm" ]; then cd /app/farming-bot/airfarm && PYTHONPATH=/app/farming-bot/airfarm python main.py; else python /app/main.py; fi'

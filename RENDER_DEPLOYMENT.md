@@ -16,33 +16,31 @@ Ensure your repository is pushed to GitHub and connected to Render.
 3. Connect your GitHub repository
 4. Render will automatically detect the `render.yaml` file
 5. Review the configuration:
-   - **Name**: airdrop-bot (or your preferred name)
+   - **Name**: coinbot (or your preferred name)
    - **Region**: Choose nearest region
    - **Branch**: main
    - **Runtime**: Docker
-   - **Plan**: Free (or paid for better performance)
+   - **Plan**: Free (or paid for true 24/7)
 
 ### 3. Configure Environment Variables
-In the Render dashboard, add these environment variables:
+In the Render dashboard, add/update these environment variables:
 
 **Required:**
-- `WALLET_STORE_PATH` = `data/wallets.enc`
-- `WALLET_STORE_KEY` = your wallet store password
-- `TWOCAPTCHA_API_KEY` = your 2captcha API key
-- `OCR_SPACE_API_KEY` = your OCR Space API key
-- `WEB3_RPC_URLS` = comma-separated RPC URLs (e.g., `https://mainnet.infura.io/v3/YOUR_KEY,https://rpc.ankr.com/eth`)
+- `PORT` = `8080` (already set in render.yaml)
+- `DATABASE_URL` = auto-set from database
+- `WALLET_ADDRESSES` = your farm wallet addresses (comma-separated)
+- `FARM_PRIVATE_KEYS` = private keys for farm wallets
+- `MASTER_WALLET_ADDRESS` = your master wallet
+- `MASTER_PRIVATE_KEY` = master wallet private key
+- `ETH_PROVIDER_URLS` = RPC endpoints
 
-**Optional (from .env.example):**
-- `PROXIES` = comma-separated proxy URLs
-- `USER_AGENT_ROTATION` = `true`
-- `AIRFARM_FUNDING_ENABLED` = `true`
-- `AIRFARM_MIN_FUND_BALANCE_ETH` = `0.03`
-- `AIRFARM_FUND_AMOUNT_ETH` = `0.06`
+**Optional:**
+- `CLAIM_INTERVAL_HOURS` = `1` (how often to claim faucets)
+- `CONSOLIDATION_INTERVAL_MINUTES` = `30` (how often to consolidate funds)
 - `CONSOLIDATION_ENABLED` = `true`
-- `CONSOLIDATION_MIN_BALANCE_ETH` = `0.02`
-- `CONSOLIDATION_GAS_BUFFER_ETH` = `0.002`
-- `CHECK_INTERVAL_HOURS` = `6`
-- `MAX_AIRDROPS_PER_CYCLE` = `10`
+- `HEADLESS` = `true`
+- `TWOCAPTCHA_API_KEY` = for CAPTCHA solving
+- `PROXIES` = comma-separated proxy URLs
 
 ### 4. Deploy
 Click **Create Web Service**. Render will:
@@ -52,41 +50,103 @@ Click **Create Web Service**. Render will:
 
 ### 5. Monitor Deployment
 - View logs in the Render dashboard
-- Health check available at `https://your-app-name.onrender.com/healthz`
-- The bot runs continuously, checking for airdrops every 6 hours (configurable)
+- Health check: `https://your-app-name.onrender.com/healthz`
+- Status page: `https://your-app-name.onrender.com/status`
+
+---
+
+## 24/7 Operation Options
+
+### Option 1: Free Tier with Ping Service (Recommended)
+Render's free tier spins down after 15 minutes of inactivity. Use the included ping service:
+
+**On your local computer or another server, run:**
+```bash
+# Windows
+start_ping_service.bat
+
+# Linux/Mac
+python ping_service.py
+```
+
+Or set `RENDER_SERVICE_URL` and run the ping service anywhere:
+```bash
+set RENDER_SERVICE_URL=https://coinbot.onrender.com
+python ping_service.py
+```
+
+The ping service sends a request every 10 minutes to keep the service awake.
+
+### Option 2: Use UptimeRobot (Free Alternative)
+1. Go to [UptimeRobot](https://uptimerobot.com/)
+2. Create a free account
+3. Add a monitor:
+   - Type: HTTP(s)
+   - URL: `https://your-app-name.onrender.com/healthz`
+   - Interval: Every 5 minutes
+4. This will keep your service awake 24/7
+
+### Option 3: Upgrade to Starter Plan ($7/month)
+- No spin-down
+- True 24/7 operation
+- Better performance
+- Upgrade in Render dashboard
+
+---
 
 ## Important Notes
 
 ### Free Tier Limitations
-- Free tier spins down after 15 minutes of inactivity
-- Cold starts can take 30-60 seconds
-- For continuous operation, consider the Starter plan ($7/month)
+- Spins down after 15 minutes without requests
+- Cold starts take 30-60 seconds
+- Use ping service or UptimeRobot to prevent spin-down
 
 ### Wallet Setup
-If you need to generate the encrypted wallet store:
-```bash
-python wallet_setup.py --input data/wallets.json --output data/wallets.enc --key your_password
-```
-Then commit `data/wallets.enc` to your repository or use Render's disk storage.
+**⚠️ SECURITY WARNING:** Private keys in environment variables are visible in Render dashboard. For production:
+- Use Render's **Environment** section only
+- Never commit keys to GitHub
+- Consider using a secrets manager
 
 ### Data Persistence
-- Render's free tier does not include persistent disk storage
-- For wallet files and databases, consider:
-  - Using Render Disk (paid add-on)
-  - Storing data in external services (S3, database)
-  - Using environment variables for sensitive data
+- Free tier: Data stored in SQLite (may reset on redeploy)
+- Paid tier: Add disk storage for persistent data
+- Bot will recreate database automatically if missing
 
 ### Troubleshooting
-- **Build fails**: Check Render build logs for dependency issues
-- **Health check fails**: Ensure the app listens on port 8080
-- **Bot not running**: Check application logs in Render dashboard
-- **Spinning down**: Upgrade to paid plan for continuous operation
+| Issue | Solution |
+|-------|----------|
+| Build fails | Check Render build logs; ensure Flask added to requirements |
+| Health check fails | Check `/healthz` endpoint returns 200 |
+| Bot spinning down | Use ping service or upgrade plan |
+| Chrome/driver errors | Headless mode enabled by default in Docker |
+| Database errors | Will auto-create on first run |
+
+---
+
+## API Endpoints
+
+Once deployed, these endpoints are available:
+
+- `GET /` - Service info
+- `GET /healthz` - Health check (for Render)
+- `GET /status` - Detailed bot status
+
+Example response from `/status`:
+```json
+{
+  "status": "idle",
+  "last_run": "2024-01-15T10:30:00",
+  "claims_today": 5,
+  "total_claims": 150,
+  "recent_errors": []
+}
+```
 
 ## Alternative: Manual Deploy Without render.yaml
-If you prefer manual configuration:
 1. Create Web Service in Render
 2. Select **Docker** as runtime
 3. Set Docker context to `/`
 4. Set Dockerfile path to `./Dockerfile`
-5. Configure environment variables manually
-6. Set health check path to `/healthz`
+5. Set health check path to `/healthz`
+6. Add environment variables manually
+7. Set `PORT` to `8080`

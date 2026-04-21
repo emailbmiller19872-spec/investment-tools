@@ -1,14 +1,45 @@
 import os
 import logging
 import time
+import subprocess
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from .utils import random_delay, safe_click, wait_for_element, get_random_user_agent
 from .proxy_manager import ProxyManager
 from .captcha_solver import CaptchaSolver
 from .wallet_manager import WalletManager
+
+
+def find_chrome_binary():
+    """Find Chrome binary location on Windows"""
+    possible_paths = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%PROGRAMFILES%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%PROGRAMFILES(x86)%\Google\Chrome\Application\chrome.exe"),
+    ]
+
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+
+    try:
+        result = subprocess.run(
+            ['reg', 'query', r'HKLM\Software\Google\Chrome\BLBeacon', '/v', 'version'],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            for path in possible_paths:
+                if os.path.exists(path):
+                    return path
+    except Exception:
+        pass
+
+    return None
 
 class TaskAutomator:
     def __init__(self):
@@ -39,23 +70,27 @@ class TaskAutomator:
 
         self.proxy_manager.set_proxy_options(options)
 
+        chrome_binary = find_chrome_binary()
+        if chrome_binary:
+            options.binary_location = chrome_binary
+            self.logger.info(f"Using Chrome binary: {chrome_binary}")
+        else:
+            self.logger.warning("Could not find Chrome binary, using default detection")
+
         driver_path = os.getenv('DRIVER_PATH')
         chrome_version = os.getenv('CHROME_VERSION')
 
-        if driver_path:
-            self.driver = uc.Chrome(options=options, driver_executable_path=driver_path)
-        elif chrome_version:
-            try:
+        try:
+            if driver_path and os.path.exists(driver_path):
+                service = Service(driver_path)
+                self.driver = uc.Chrome(options=options, service=service)
+            elif chrome_version:
                 self.driver = uc.Chrome(options=options, version_main=int(chrome_version))
-            except Exception:
-                self.logger.warning("Chrome version detection failed for CHROME_VERSION=%s, falling back to default undetected_chromedriver behavior", chrome_version)
+            else:
                 self.driver = uc.Chrome(options=options)
-        else:
-            try:
-                self.driver = uc.Chrome(options=options, version_main=None)
-            except Exception:
-                self.logger.warning("Automatic Chrome driver detection failed, retrying without version_main")
-                self.driver = uc.Chrome(options=options)
+        except Exception as e:
+            self.logger.error(f"Failed to initialize Chrome driver: {e}")
+            raise
 
         self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 

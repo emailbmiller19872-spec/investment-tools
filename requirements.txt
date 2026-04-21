@@ -19,3 +19,4 @@ twocaptcha
 capsolver
 cryptography>=41.0.0
 bip-utils
+flask==3.0.0
