@@ -15,13 +15,13 @@ services:
           name: airdrop-db
           property: connectionString
       - key: WALLET_ADDRESSES
-        value: "0x14ffCff3eE11a8D691CD2029DAFce844EC4cF695,0xFf19891D594B30d3B1675279E2b2467602700096,0x42eb2B5734Ac4D61d9c201991D71889A2Ca6D6cD,0x1a2165f3423A11a97c5563D04dFdC99ed8c283eD,0x431654Cac8fB662de7e06060FB889F51cB686620"
+        value: "0x2FF502B90BebAf136bb45a8ac832FF2d0CDe554C,0xd184f33FAD250c6d9ffFAD376C2475A9F20BC299,0x8dF72d3aE586dBB01806aD64BFBA8be917090a09,0xb4099bF73f40080553d859cD0E3E356aB1709e3C"
       - key: FARM_PRIVATE_KEYS
-        value: "0xd9207441b786e70a5c9cee580bc79fb5349be6876022abdbab2b479b6f115146,0x53f56d2cd3d8ef1c692194602d40abb108962a2cdf2689b89b9b9285084bc627,0x1176396b6c6cd50563a3d1879fc6755ec01e53d1d704a4c30e70625259e39101,0x0db48d425aa5c4b8636b3935eba213dd1d2b74ea7355e4de83f73d503324a765,0x8beaeae6d9be7a8b3a9793a3878d6ce0d7322aaa54590a336d7477ae320eda58"
+        value: "84315dc7dec19908a461962c30e46debe18154a11535909bdf9d2aa1d921e0e6,96b6395af06f0d9f725cbbf001cfb26ec49c4a78c6077d3380145123c455ebe8,1539dead355b93fb43eec50075c151be6b0769c53cf8adc4dba0b8110e2809af,a62358d8c373d2422e6cd779f254f71b72185713fcda46258f68650919535d5a"
       - key: MASTER_WALLET_ADDRESS
-        value: "0xC59c89FA31606AaCc42aD7ec28774ec0485A1Dc7"
+        value: "0x4962f14DE79c05F44a0B240791b150143B7b15df"
       - key: MASTER_PRIVATE_KEY
-        value: "0x22e4fda7958ccdf37a4d1055843b6bbd6d54c8c0696c3d0dbc873fa48711b5b3"
+        value: "e75533612c12584f2ad399fc2f0eb030aacaab7e5aa2a74b5ff22b0c18df6799"
       - key: ETH_PROVIDER_URLS
         value: "https://mainnet.infura.io/v3/YOUR_INFURA_KEY,https://rpc.ankr.com/eth,https://eth.llamarpc.com"
       - key: CONSOLIDATION_ENABLED
@@ -48,14 +48,12 @@ services:
         fromDatabase:
           name: airdrop-db
           property: connectionString
-      - key: WALLET_STORE_KEY
-        value: "wallet_store_password_123"
+      - key: WALLET_ADDRESSES
+        value: "0x4962f14DE79c05F44a0B240791b150143B7b15df"
       - key: MASTER_WALLET_ADDRESS
-        value: "0xC59c89FA31606AaCc42aD7ec28774ec0485A1Dc7"
-      - key: MIDDLEWARE_WALLET_ADDRESS
-        value: "0xf8A9cCbF7A14919Ae348d65b5613ecA810A50B25"
-      - key: MIDDLEWARE_WALLET_PRIVATE_KEY
-        value: "0xf1d69783e843be9a97d4264b51d41d785dd8bc4680ff4f5d4058db9b1954e0e7"
+        value: "0x4962f14DE79c05F44a0B240791b150143B7b15df"
+      - key: MASTER_PRIVATE_KEY
+        value: "e75533612c12584f2ad399fc2f0eb030aacaab7e5aa2a74b5ff22b0c18df6799"
       - key: RPC_ENDPOINTS
         value: "https://mainnet.infura.io/v3/YOUR_INFURA_KEY,https://rpc.ankr.com/eth,https://eth.llamarpc.com"
       - key: CONSOLIDATION_ENABLED
